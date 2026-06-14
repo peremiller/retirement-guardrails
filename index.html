@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Retirement Guardrails</title>
+<style>
+  :root {
+    --bg: #0e1116;
+    --panel: #171c24;
+    --panel-2: #1f2630;
+    --border: #2a323d;
+    --text: #e7ecf2;
+    --muted: #98a4b3;
+    --accent: #4f9cf9;
+    --green: #2ecc8f;
+    --amber: #f5b342;
+    --red: #f0604d;
+    --equity: #4f9cf9;
+    --bond: #9b7bf0;
+    --tbill: #2ecc8f;
+    --other: #6b7785;
+    --radius: 12px;
+    --shadow: 0 6px 24px rgba(0,0,0,.35);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: radial-gradient(1200px 600px at 80% -10%, #16202c 0%, var(--bg) 55%);
+    color: var(--text);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 20px 80px; }
+  header h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -0.02em; }
+  header p { color: var(--muted); margin: 0 0 28px; font-size: 15px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 880px) { .grid { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    box-shadow: var(--shadow);
+  }
+  .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 16px; font-weight: 600; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 0 0 6px; }
+  input, select {
+    width: 100%;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 9px 11px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color .15s;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+  .row { display: flex; gap: 12px; margin-bottom: 14px; }
+  .row > div { flex: 1; }
+  .holdings-head, .holding {
+    display: grid;
+    grid-template-columns: 1.6fr 1.1fr 1.2fr 1fr 36px;
+    gap: 8px;
+    align-items: center;
+  }
+  .holdings-head { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 8px; padding: 0 2px; }
+  .holding { margin-bottom: 8px; }
+  .holding input, .holding select { padding: 8px 9px; font-size: 13px; }
+  .del {
+    background: transparent; border: 1px solid var(--border); color: var(--muted);
+    border-radius: 8px; height: 34px; cursor: pointer; font-size: 16px; line-height: 1;
+    transition: all .15s;
+  }
+  .del:hover { border-color: var(--red); color: var(--red); }
+  .btn {
+    background: var(--accent); color: #06121f; border: none; font-weight: 600;
+    padding: 10px 16px; border-radius: 8px; cursor: pointer; font-size: 14px;
+    transition: filter .15s;
+  }
+  .btn:hover { filter: brightness(1.08); }
+  .btn.ghost { background: transparent; color: var(--accent); border: 1px dashed var(--border); width: 100%; margin-top: 6px; }
+  .btn.ghost:hover { border-color: var(--accent); }
+
+  /* Scorecard */
+  .score { display: flex; flex-direction: column; gap: 14px; }
+  .rule {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--muted);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .rule.pass { border-left-color: var(--green); }
+  .rule.warn { border-left-color: var(--amber); }
+  .rule.fail { border-left-color: var(--red); }
+  .rule-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .rule-title { font-size: 14px; font-weight: 600; }
+  .badge { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; padding: 3px 9px; border-radius: 20px; white-space: nowrap; }
+  .badge.pass { background: rgba(46,204,143,.15); color: var(--green); }
+  .badge.warn { background: rgba(245,179,66,.15); color: var(--amber); }
+  .badge.fail { background: rgba(240,96,77,.15); color: var(--red); }
+  .rule-metric { font-size: 24px; font-weight: 700; margin: 8px 0 2px; letter-spacing: -0.02em; }
+  .rule-target { font-size: 12px; color: var(--muted); }
+  .rule-advice { font-size: 13px; color: var(--text); margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+  .rule-advice b { color: var(--amber); }
+
+  /* allocation bar */
+  .bar { display: flex; height: 14px; border-radius: 7px; overflow: hidden; margin: 6px 0 12px; background: var(--panel-2); }
+  .bar span { height: 100%; }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--muted); }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: middle; }
+
+  .summary-line { display: flex; justify-content: space-between; font-size: 13px; padding: 5px 0; border-bottom: 1px solid var(--border); }
+  .summary-line:last-child { border-bottom: none; }
+  .summary-line .v { font-weight: 600; }
+  .muted { color: var(--muted); }
+  /* T-bill teaching panel */
+  .tb-intro { font-size: 14px; color: var(--text); margin: 0 0 4px; }
+  .tb-reserve { font-size: 13px; color: var(--muted); margin: 10px 0 0; padding: 12px 14px; background: var(--panel-2); border: 1px solid var(--border); border-left: 4px solid var(--tbill); border-radius: 10px; }
+  .tb-reserve b { color: var(--tbill); }
+  .tb-h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 22px 0 8px; font-weight: 600; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { background: rgba(46,204,143,.10); border: 1px solid rgba(46,204,143,.35); border-radius: 8px; padding: 6px 12px; font-size: 13px; font-weight: 600; color: var(--tbill); }
+  .tb-buy { display: flex; gap: 14px; padding: 11px 0; border-bottom: 1px solid var(--border); }
+  .tb-buy:last-child { border-bottom: none; }
+  .tb-buy .name { font-weight: 600; font-size: 13px; min-width: 190px; color: var(--text); }
+  .tb-buy .desc { font-size: 13px; color: var(--muted); }
+  @media (max-width: 600px){ .tb-buy { flex-direction: column; gap: 2px; } .tb-buy .name{ min-width:0; } }
+  .tb-tax { font-size: 12px; color: var(--muted); margin-top: 14px; font-style: italic; }
+  footer { margin-top: 36px; font-size: 12px; color: var(--muted); text-align: center; }
+  .pill { display:inline-block; background:var(--panel-2); border:1px solid var(--border); border-radius:20px; padding:2px 10px; font-size:11px; color:var(--muted); margin-left:6px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Retirement Guardrails <span class="pill">30+ year horizon</span></h1>
+    <p>Stress-test a retirement portfolio against three durability rules: keep growth, kill fees, hold a cash runway.</p>
+  </header>
+
+  <div class="grid">
+    <!-- LEFT: inputs -->
+    <div class="card">
+      <h2>Your Plan</h2>
+      <div class="row">
+        <div>
+          <label>Currency</label>
+          <select id="currency"></select>
+        </div>
+        <div>
+          <label>Annual spending</label>
+          <input id="spend" type="number" min="0" step="1000" value="80000" />
+        </div>
+        <div>
+          <label>Portfolio total <span class="muted">(auto)</span></label>
+          <input id="totalView" type="text" value="" readonly />
+        </div>
+      </div>
+
+      <h2 style="margin-top:18px;">Holdings</h2>
+      <div class="holdings-head">
+        <div>Name</div><div>Value (<span id="valHdr">$</span>)</div><div>Asset class</div><div>Expense %</div><div></div>
+      </div>
+      <div id="holdings"></div>
+      <button class="btn ghost" id="addBtn">+ Add holding</button>
+    </div>
+
+    <!-- RIGHT: scorecard -->
+    <div class="card">
+      <h2>Allocation</h2>
+      <div class="bar" id="allocBar"></div>
+      <div class="legend">
+        <span><i style="background:var(--equity)"></i>Equities</span>
+        <span><i style="background:var(--bond)"></i>Bonds</span>
+        <span><i style="background:var(--tbill)"></i>T-bills</span>
+        <span><i style="background:var(--other)"></i>Other</span>
+      </div>
+      <div style="margin-top:16px;">
+        <div class="summary-line"><span class="muted">Total portfolio</span><span class="v" id="sTotal">—</span></div>
+        <div class="summary-line"><span class="muted">Blended expense ratio</span><span class="v" id="sFee">—</span></div>
+        <div class="summary-line"><span class="muted">Annual fee drag</span><span class="v" id="sFeeDollars">—</span></div>
+        <div class="summary-line"><span class="muted">T-bill runway</span><span class="v" id="sRunway">—</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:20px;">
+    <h2>Guardrail Scorecard</h2>
+    <div class="score" id="score"></div>
+  </div>
+
+  <div class="card" style="margin-top:20px;">
+    <h2 id="tbillTitle">About Your T-bill Sleeve</h2>
+    <div id="tbillInfo"></div>
+  </div>
+
+  <footer>
+    Educational tool — not financial advice. All calculations run locally in your browser.
+  </footer>
+</div>
+
+<script>
+const CLASSES = ["Equities", "Bonds", "T-bills", "Other"];
+const CLASS_COLOR = { "Equities":"var(--equity)", "Bonds":"var(--bond)", "T-bills":"var(--tbill)", "Other":"var(--other)" };
+
+// Default sample portfolio
+let holdings = [
+  { name: "Global equity index", value: 350000, cls: "Equities", er: 0.07 },
+  { name: "Total bond index",    value: 520000, cls: "Bonds",    er: 0.05 },
+  { name: "T-bill ladder / fund",value: 130000, cls: "T-bills",  er: 0.09 },
+];
+
+// code -> display symbol + locale for thousands grouping
+const CURRENCIES = {
+  USD: { symbol: "$",  locale: "en-US" },
+  EUR: { symbol: "€",  locale: "de-DE" },
+  GBP: { symbol: "£",  locale: "en-GB" },
+  JPY: { symbol: "¥",  locale: "ja-JP" },
+  PHP: { symbol: "₱",  locale: "en-PH" },
+  AUD: { symbol: "A$", locale: "en-AU" },
+  CAD: { symbol: "C$", locale: "en-CA" },
+  SGD: { symbol: "S$", locale: "en-SG" },
+  INR: { symbol: "₹",  locale: "en-IN" },
+  CHF: { symbol: "Fr", locale: "de-CH" },
+};
+let cur = "USD";
+
+// What a T-bill is — same idea in every country, shown for all currencies.
+const TBILL_HOWTO = "A Treasury bill is a short-term government IOU. You buy it below its face value and receive the full face value at maturity — that difference is your interest. There are no coupon payments, and because it is backed by the government it is about the safest place to park near-term cash. That is exactly why it suits your spending reserve: the money is there when you need it, so a market downturn never forces you to sell equities.";
+
+// Currency-aware: the sleeve is held in the matching country's short-term gov bills.
+const TBILL_INFO = {
+  USD: {
+    issuer: "U.S. Treasury Bills (T-bills)",
+    maturities: ["4-week", "8-week", "13-week", "17-week", "26-week", "52-week"],
+    buy: [
+      ["TreasuryDirect.gov", "Buy new-issue bills straight from the Treasury at the weekly auction. $100 minimum, no commission."],
+      ["Any brokerage", "Fidelity, Schwab, Vanguard and others sell new-issue and secondary-market bills, usually commission-free."],
+      ["T-bill ETFs — SGOV, BIL, USFR", "One ticker holds a rolling bill ladder with daily liquidity, ~0.07–0.15% expense ratio — comfortably inside your 0.20% fee guardrail."],
+    ],
+    tax: "Interest is exempt from state and local income tax (federally taxable).",
+  },
+  PHP: {
+    issuer: "Philippine Treasury Bills",
+    maturities: ["91-day", "182-day", "364-day"],
+    buy: [
+      ["Bonds.PH / OFBank app", "Buy retail T-bills from your phone with a low minimum (often ₱5,000)."],
+      ["Universal & commercial banks", "BDO, BPI, Metrobank and others sell them through their trust/treasury desks."],
+      ["Bureau of the Treasury auctions", "Weekly auctions placed through Government Securities Eligible Dealers (GSEDs)."],
+    ],
+    tax: "Interest is subject to 20% final withholding tax.",
+  },
+  GBP: {
+    issuer: "UK Treasury Bills (DMO)",
+    maturities: ["1-month", "3-month", "6-month"],
+    buy: [
+      ["Brokerage / fund platform", "Hold gilts and short-term bills, or an ultra-short gilt ETF, via Hargreaves Lansdown, AJ Bell, etc."],
+      ["Money-market funds", "A rolling ladder of bills with daily liquidity — check the ongoing charge against your 0.20% guardrail."],
+      ["DMO primary dealers", "Bills are auctioned weekly by the Debt Management Office through approved dealers."],
+    ],
+    tax: "Returns are generally taxable; an ISA can shelter them.",
+  },
+  // Sensible fallback for EUR, JPY, AUD, CAD, SGD, INR, CHF and anything else.
+  default: {
+    issuer: "Short-term government bills",
+    maturities: ["≈1-month", "≈3-month", "≈6-month", "≈12-month"],
+    buy: [
+      ["Your brokerage", "Most brokers list local government bills and short-term government-bond ETFs."],
+      ["Money-market / ultra-short bond funds", "Hold a rolling ladder of government bills with daily liquidity — check the expense ratio against your 0.20% guardrail."],
+      ["National treasury / debt agency", "Many sell bills directly to retail investors at regular auctions (e.g. German Bubills, French BTFs, Japanese T-Bills)."],
+    ],
+    tax: "Tax treatment varies by country — check your local rules.",
+  },
+};
+
+const $ = id => document.getElementById(id);
+const fmt$ = n => CURRENCIES[cur].symbol + Math.round(n).toLocaleString(CURRENCIES[cur].locale);
+const fmtPct = n => n.toFixed(2) + "%";
+
+function renderHoldings() {
+  const wrap = $("holdings");
+  wrap.innerHTML = "";
+  holdings.forEach((h, i) => {
+    const div = document.createElement("div");
+    div.className = "holding";
+    div.innerHTML = `
+      <input data-i="${i}" data-f="name" type="text" value="${h.name.replace(/"/g,'&quot;')}" />
+      <input data-i="${i}" data-f="value" type="number" min="0" step="1000" value="${h.value}" />
+      <select data-i="${i}" data-f="cls">
+        ${CLASSES.map(c => `<option ${c===h.cls?"selected":""}>${c}</option>`).join("")}
+      </select>
+      <input data-i="${i}" data-f="er" type="number" min="0" step="0.01" value="${h.er}" />
+      <button class="del" data-del="${i}" title="Remove">×</button>`;
+    wrap.appendChild(div);
+  });
+  wrap.querySelectorAll("input,select").forEach(el => {
+    el.addEventListener("input", e => {
+      const i = +e.target.dataset.i, f = e.target.dataset.f;
+      let v = e.target.value;
+      if (f === "value" || f === "er") v = parseFloat(v) || 0;
+      holdings[i][f] = v;
+      compute();
+    });
+  });
+  wrap.querySelectorAll("[data-del]").forEach(b => {
+    b.addEventListener("click", e => {
+      holdings.splice(+e.target.dataset.del, 1);
+      renderHoldings(); compute();
+    });
+  });
+}
+
+function compute() {
+  const spend = parseFloat($("spend").value) || 0;
+  const total = holdings.reduce((s,h) => s + (h.value||0), 0);
+  const byClass = { "Equities":0, "Bonds":0, "T-bills":0, "Other":0 };
+  let feeWeighted = 0;
+  holdings.forEach(h => {
+    byClass[h.cls] += h.value || 0;
+    feeWeighted += (h.value||0) * (h.er||0);
+  });
+  const blendedER = total > 0 ? feeWeighted / total : 0; // percent
+  const equityPct = total > 0 ? byClass["Equities"]/total*100 : 0;
+  const tbillRunway = spend > 0 ? byClass["T-bills"]/spend : 0;
+  const feeDollars = total * blendedER/100;
+
+  $("totalView").value = fmt$(total);
+  $("valHdr").textContent = CURRENCIES[cur].symbol;
+
+  // allocation bar
+  const bar = $("allocBar"); bar.innerHTML = "";
+  CLASSES.forEach(c => {
+    const pct = total>0 ? byClass[c]/total*100 : 0;
+    if (pct <= 0) return;
+    const s = document.createElement("span");
+    s.style.width = pct + "%";
+    s.style.background = CLASS_COLOR[c];
+    s.title = `${c}: ${pct.toFixed(1)}%`;
+    bar.appendChild(s);
+  });
+
+  $("sTotal").textContent = fmt$(total);
+  $("sFee").textContent = fmtPct(blendedER);
+  $("sFeeDollars").textContent = fmt$(feeDollars) + " / yr";
+  $("sRunway").textContent = tbillRunway.toFixed(1) + " yrs";
+
+  renderScore({ total, spend, equityPct, blendedER, tbillRunway, byClass, feeDollars });
+  renderTbill({ spend, haveCash: byClass["T-bills"], runway: tbillRunway });
+}
+
+function renderTbill(d) {
+  const info = TBILL_INFO[cur] || TBILL_INFO.default;
+  $("tbillTitle").textContent = "About Your T-bill Sleeve · " + info.issuer;
+
+  const target = 2 * d.spend;
+  const gap = target - d.haveCash;
+  let reserveLine;
+  if (d.spend <= 0) {
+    reserveLine = "Enter your annual spending above to size the two-year reserve.";
+  } else if (gap > 0) {
+    reserveLine = `Your two-year reserve target is <b>${fmt$(target)}</b>. You currently hold ${fmt$(d.haveCash)} in bills — about <b>${fmt$(gap)}</b> short. A common approach is a <b>ladder</b>: split the reserve across maturities so a slice matures every few months to fund spending.`;
+  } else {
+    reserveLine = `Your two-year reserve target is <b>${fmt$(target)}</b> and you already hold ${fmt$(d.haveCash)} — fully funded (${d.runway.toFixed(1)} yrs). A <b>ladder</b> across maturities keeps a slice maturing every few months to refill spending cash.`;
+  }
+
+  const buyRows = info.buy.map(([name, desc]) =>
+    `<div class="tb-buy"><div class="name">${name}</div><div class="desc">${desc}</div></div>`).join("");
+
+  $("tbillInfo").innerHTML = `
+    <p class="tb-intro">${TBILL_HOWTO}</p>
+    <div class="tb-reserve">${reserveLine}</div>
+    <div class="tb-h3">Available maturities</div>
+    <div class="chips">${info.maturities.map(m => `<span class="chip">${m}</span>`).join("")}</div>
+    <div class="tb-h3">Where to buy</div>
+    ${buyRows}
+    <div class="tb-tax">${info.tax}</div>`;
+}
+
+function ruleCard(state, title, metric, target, advice) {
+  return `<div class="rule ${state}">
+    <div class="rule-top">
+      <div class="rule-title">${title}</div>
+      <div class="badge ${state}">${state==="pass"?"On track":state==="warn"?"Watch":"Off track"}</div>
+    </div>
+    <div class="rule-metric">${metric}</div>
+    <div class="rule-target">${target}</div>
+    ${advice ? `<div class="rule-advice">${advice}</div>` : ""}
+  </div>`;
+}
+
+function renderScore(d) {
+  const cards = [];
+
+  // Rule 1: equities 30–40%
+  let s1, a1 = "";
+  if (d.equityPct >= 30 && d.equityPct <= 40) {
+    s1 = "pass"; a1 = "Equity weight is in the growth band that keeps a 30+ year portfolio ahead of inflation.";
+  } else if (d.equityPct < 30) {
+    s1 = "fail";
+    const need = (0.30*d.total - d.byClass["Equities"]);
+    a1 = `Too defensive for a multi-decade horizon. <b>Shift ~${fmt$(need)}</b> into global equities to reach the 30% floor.`;
+  } else {
+    s1 = d.equityPct <= 50 ? "warn" : "fail";
+    const trim = (d.byClass["Equities"] - 0.40*d.total);
+    a1 = `Above the 40% ceiling raises sequence-of-returns risk. Consider <b>trimming ~${fmt$(trim)}</b> of equities toward bonds/T-bills.`;
+  }
+  cards.push(ruleCard(s1, "1 · Global equity allocation",
+    d.equityPct.toFixed(1) + "%", "Target band: 30% – 40% of portfolio", a1));
+
+  // Rule 2: blended ER < 0.20%
+  let s2, a2 = "";
+  if (d.blendedER < 0.20) {
+    s2 = "pass"; a2 = `Fees stay out of the way — only <b>${fmt$(d.feeDollars)}/yr</b> in drag at this size.`;
+  } else if (d.blendedER < 0.30) {
+    s2 = "warn"; a2 = `Slightly high. Swapping the priciest holdings for low-cost index funds could save real money over decades.`;
+  } else {
+    s2 = "fail"; a2 = `Fees are silently eroding longevity — <b>${fmt$(d.feeDollars)}/yr</b> today and far more compounded. Move to sub-0.10% index funds.`;
+  }
+  cards.push(ruleCard(s2, "2 · Total expense ratio",
+    fmtPct(d.blendedER), "Target: under 0.20% blended", a2));
+
+  // Rule 3: T-bill sleeve >= 2 years spending
+  let s3, a3 = "";
+  const needCash = 2 * d.spend;
+  const haveCash = d.byClass["T-bills"];
+  if (d.spend <= 0) {
+    s3 = "warn"; a3 = "Enter your annual spending to size the liquidity sleeve.";
+  } else if (d.tbillRunway >= 2) {
+    s3 = "pass"; a3 = `A <b>${d.tbillRunway.toFixed(1)}-year</b> T-bill cushion means you never have to sell equities into a downturn.`;
+  } else if (d.tbillRunway >= 1.5) {
+    s3 = "warn"; a3 = `Close. Add <b>${fmt$(needCash - haveCash)}</b> in T-bills to reach a full 2-year runway.`;
+  } else {
+    s3 = "fail"; a3 = `Thin liquidity sleeve. Build it to <b>${fmt$(needCash)}</b> (add ${fmt$(needCash - haveCash)}) so a bad market never forces equity sales.`;
+  }
+  cards.push(ruleCard(s3, "3 · T-bill liquidity sleeve",
+    d.tbillRunway.toFixed(1) + " yrs of spending",
+    `Target: 2.0 yrs · ${fmt$(needCash)} reserve`, a3));
+
+  $("score").innerHTML = cards.join("");
+}
+
+$("addBtn").addEventListener("click", () => {
+  holdings.push({ name: "New holding", value: 0, cls: "Equities", er: 0.10 });
+  renderHoldings(); compute();
+});
+$("spend").addEventListener("input", compute);
+
+// populate currency selector
+const curSel = $("currency");
+curSel.innerHTML = Object.keys(CURRENCIES)
+  .map(c => `<option value="${c}">${c} (${CURRENCIES[c].symbol})</option>`).join("");
+curSel.value = cur;
+curSel.addEventListener("change", e => { cur = e.target.value; compute(); });
+
+renderHoldings();
+compute();
+</script>
+</body>
+</html>
