@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Retirement Guardrails">
+  <rect width="128" height="128" rx="28" fill="#171c24"/>
+  <path d="M22 83h84M31 83V54M97 83V54" stroke="#e7ecf2" stroke-width="10" stroke-linecap="round"/>
+  <path d="M26 51h76v24H26z" fill="#f5b342"/>
+  <path d="m30 74 18-23m8 23 18-23m8 23 18-23" stroke="#171c24" stroke-width="8"/>
+</svg>
