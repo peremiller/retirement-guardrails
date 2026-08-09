@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Retirement Guardrails</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg" />
 <style>
   :root {
     --bg: #0e1116;
@@ -33,7 +34,8 @@
     -webkit-font-smoothing: antialiased;
   }
   .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 20px 80px; }
-  header h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -0.02em; }
+  header h1 { display:flex; align-items:center; gap:10px; font-size: 26px; margin: 0 0 4px; letter-spacing: -0.02em; }
+  header h1 img { width:36px; height:36px; border-radius:9px; }
   header p { color: var(--muted); margin: 0 0 28px; font-size: 15px; }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
   @media (max-width: 880px) { .grid { grid-template-columns: 1fr; } }
@@ -137,7 +139,7 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>Retirement Guardrails <span class="pill">30+ year horizon</span></h1>
+    <h1><img src="favicon.svg" alt="" aria-hidden="true">Retirement Guardrails <span class="pill">30+ year horizon</span></h1>
     <p>Stress-test a retirement portfolio against three durability rules: keep growth, kill fees, hold a cash runway.</p>
   </header>
 
