@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+const html=readFileSync(new URL('../index.html', import.meta.url),'utf8');
+const manifest=JSON.parse(readFileSync(new URL('../offline-assets.json', import.meta.url),'utf8'));
+test('static fields have programmatically associated names',()=>{for(const id of ['currency','spend','totalView']) assert.match(html,new RegExp('<label for="'+id+'"'));});
+test('dynamically rendered holding controls and delete buttons are named',()=>{for(const field of ['name','value','cls','er'])assert.ok(html.includes('data-f="'+field+'"'));assert.equal((html.match(/aria-label="Holding \$\{i \+ 1\}/g)||[]).length,4);assert.ok(html.includes('aria-label="Remove holding \$\{i + 1\}"'));});
+test('untrusted holding names escape all HTML attribute metacharacters',()=>{for(const s of [".replace(/&/g,'&amp;')",".replace(/\\\"/g,'&quot;')",".replace(/</g,'&lt;')",".replace(/>/g,'&gt;')"])assert.ok(html.includes(s.replace(/\\\"/g,'"')));});
+test('mobile holding layout, focus rings and main landmark exist',()=>{assert.ok(html.includes('<main class="wrap">'));assert.match(html,/:focus-visible \{ outline: 3px/);assert.match(html,/\.holding \{ grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\)/);});
+test('offline bundle metadata matches public assets',()=>{assert.equal(manifest.files,4);assert.equal(manifest.pages,1);assert.match(manifest.version,/^[a-f0-9]{20}$/);});

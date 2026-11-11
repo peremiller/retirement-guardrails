@@ -1,0 +1,19 @@
+name: Retirement Guardrails accessibility and offline integrity
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check reversible source changes
+        run: node --test tests/retirement-guardrails.test.mjs
+      - name: Verify canonical offline bundle generation
+        run: |
+          python3 scripts/build-offline.py
+          git diff --exit-code -- index.html sw.js offline-assets.json

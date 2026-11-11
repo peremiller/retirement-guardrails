@@ -60,6 +60,7 @@
     transition: border-color .15s;
   }
   input:focus, select:focus { border-color: var(--accent); }
+  :where(input, select, button):focus-visible { outline: 3px solid #a3ccff; outline-offset: 2px; }
   .row { display: flex; gap: 12px; margin-bottom: 14px; }
   .row > div { flex: 1; }
   .holdings-head, .holding {
@@ -134,10 +135,20 @@
   .tb-tax { font-size: 12px; color: var(--muted); margin-top: 14px; font-style: italic; }
   footer { margin-top: 36px; font-size: 12px; color: var(--muted); text-align: center; }
   .pill { display:inline-block; background:var(--panel-2); border:1px solid var(--border); border-radius:20px; padding:2px 10px; font-size:11px; color:var(--muted); margin-left:6px;}
+  @media (max-width: 620px) {
+    .wrap { padding: 20px 12px 48px; }
+    header h1 { flex-wrap: wrap; }
+    .row { flex-wrap: wrap; }
+    .row > div { min-width: 150px; }
+    .holdings-head { display: none; }
+    .holding { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); padding: 12px; border: 1px solid var(--border); border-radius: 8px; }
+    .holding [data-f="name"], .holding .del { grid-column: 1 / -1; }
+    .holding .del { width: 100%; }
+  }
 </style>
 <meta name="offline-limits" content="Saved pages and local tools work offline. External links and live services need internet."><link rel="manifest" href="manifest.webmanifest"><script data-offline-client src="offline-client.js" defer></script></head>
 <body>
-<div class="wrap">
+<main class="wrap">
   <header>
     <h1><img src="favicon.svg" alt="" aria-hidden="true">Retirement Guardrails <span class="pill">30+ year horizon</span></h1>
     <p>Stress-test a retirement portfolio against three durability rules: keep growth, kill fees, hold a cash runway.</p>
@@ -149,15 +160,15 @@
       <h2>Your Plan</h2>
       <div class="row">
         <div>
-          <label>Currency</label>
+          <label for="currency">Currency</label>
           <select id="currency"></select>
         </div>
         <div>
-          <label>Annual spending</label>
+          <label for="spend">Annual spending</label>
           <input id="spend" type="number" min="0" step="1000" value="80000" />
         </div>
         <div>
-          <label>Portfolio total <span class="muted">(auto)</span></label>
+          <label for="totalView">Portfolio total <span class="muted">(auto)</span></label>
           <input id="totalView" type="text" value="" readonly />
         </div>
       </div>
@@ -173,7 +184,7 @@
     <!-- RIGHT: scorecard -->
     <div class="card">
       <h2>Allocation</h2>
-      <div class="bar" id="allocBar"></div>
+      <div class="bar" id="allocBar" role="img" aria-label="Portfolio allocation by asset class"></div>
       <div class="legend">
         <span><i style="background:var(--equity)"></i>Equities</span>
         <span><i style="background:var(--bond)"></i>Bonds</span>
@@ -202,7 +213,7 @@
   <footer>
     Educational tool — not financial advice. All calculations run locally in your browser.
   </footer>
-</div>
+</main>
 
 <script>
 const CLASSES = ["Equities", "Bonds", "T-bills", "Other"];
@@ -289,13 +300,13 @@ function renderHoldings() {
     const div = document.createElement("div");
     div.className = "holding";
     div.innerHTML = `
-      <input data-i="${i}" data-f="name" type="text" value="${h.name.replace(/"/g,'&quot;')}" />
-      <input data-i="${i}" data-f="value" type="number" min="0" step="1000" value="${h.value}" />
-      <select data-i="${i}" data-f="cls">
+      <input aria-label="Holding ${i + 1} name" data-i="${i}" data-f="name" type="text" value="${String(h.name).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}" />
+      <input aria-label="Holding ${i + 1} value" data-i="${i}" data-f="value" type="number" min="0" step="1000" value="${h.value}" />
+      <select aria-label="Holding ${i + 1} asset class" data-i="${i}" data-f="cls">
         ${CLASSES.map(c => `<option ${c===h.cls?"selected":""}>${c}</option>`).join("")}
       </select>
-      <input data-i="${i}" data-f="er" type="number" min="0" step="0.01" value="${h.er}" />
-      <button class="del" data-del="${i}" title="Remove">×</button>`;
+      <input aria-label="Holding ${i + 1} expense ratio percent" data-i="${i}" data-f="er" type="number" min="0" step="0.01" value="${h.er}" />
+      <button class="del" data-del="${i}" aria-label="Remove holding ${i + 1}" title="Remove">×</button>`;
     wrap.appendChild(div);
   });
   wrap.querySelectorAll("input,select").forEach(el => {
@@ -334,6 +345,7 @@ function compute() {
 
   // allocation bar
   const bar = $("allocBar"); bar.innerHTML = "";
+  bar.setAttribute("aria-label", "Portfolio allocation: " + CLASSES.map(c => `${c} ${total>0 ? (byClass[c]/total*100).toFixed(1) : "0.0"}%`).join(", "));
   CLASSES.forEach(c => {
     const pct = total>0 ? byClass[c]/total*100 : 0;
     if (pct <= 0) return;
