@@ -17,3 +17,68 @@ jobs:
         run: |
           python3 scripts/build-offline.py
           git diff --exit-code -- index.html sw.js offline-assets.json
+      - name: Install Chromium for genuine responsive UI checks
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Exercise actual Chromium interactions, keyboard, holdings and privacy
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/guardrails-http.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for i in $(seq 1 30); do
+            if curl -fsS -o /dev/null http://127.0.0.1:8765/; then break; fi
+            sleep 0.25
+          done
+          curl -fsS -o /dev/null http://127.0.0.1:8765/
+          node - <<'JS'
+          const assert = require('node:assert/strict');
+          const {chromium} = require('playwright');
+          (async () => {
+            const browser = await chromium.launch({headless:true});
+            try {
+              for (const [width,scheme] of [[320,'dark'],[390,'light'],[1280,'dark']]) {
+                const page = await browser.newPage({viewport:{width,height:820},colorScheme:scheme});
+                const errors = [];
+                page.on('pageerror', e => errors.push(String(e)));
+                await page.goto('http://127.0.0.1:8765/');
+                assert.equal(await page.locator('.holding').count(),3,'Default holdings');
+                assert.equal(await page.locator('#totalView').inputValue(),'$1,000,000');
+                assert(await page.locator('#totalView').isDisabled() === false,'Read-only total is readable');
+                assert.equal(await page.locator('#totalView').getAttribute('readonly'),'');
+                const unlabeled = await page.locator('input,select').evaluateAll(els =>
+                  els.filter(el => !(el.labels?.length || el.getAttribute('aria-label'))).map(el => el.id));
+                assert.deepEqual(unlabeled,[],'Every form control has an accessible name at '+width);
+                await page.keyboard.press('Tab');
+                const focus = await page.evaluate(() => ({
+                  tag:document.activeElement?.tagName,
+                  outline:getComputedStyle(document.activeElement).outlineStyle
+                }));
+                assert.equal(focus.tag,'SELECT','Keyboard reaches currency selector');
+                assert.notEqual(focus.outline,'none','Keyboard focus visible');
+                await page.locator('#addBtn').hover();
+                await page.locator('#addBtn').click();
+                assert.equal(await page.locator('.holding').count(),4);
+                const sample='Sample "quoted" <asset> &';
+                await page.locator('.holding').nth(3).locator('[data-f="name"]').fill(sample);
+                await page.locator('.holding').nth(3).locator('[data-f="value"]').fill('10000');
+                await page.locator('#spend').fill('100000');
+                assert.equal(await page.locator('#totalView').inputValue(),'$1,010,000');
+                await page.locator('#addBtn').click();
+                assert.equal(await page.locator('.holding').nth(3).locator('[data-f="name"]').inputValue(),sample,'Untrusted holding name preserved as text');
+                assert.equal(await page.locator('.holding').nth(3).locator('img').count(),0,'No injected HTML');
+                await page.locator('#currency').selectOption('PHP');
+                assert((await page.locator('#sTotal').textContent()).startsWith('₱'),'Currency selection updates display');
+                assert.equal(await page.locator('.holding').nth(3).locator('[data-f="name"]').inputValue(),sample,'Currency change preserves holdings draft');
+                await page.locator('.holding').last().locator('.del').click();
+                await page.locator('.holding').last().locator('.del').click();
+                assert.equal(await page.locator('.holding').count(),3);
+                assert.equal(await page.locator('.holding').first().locator('[data-f="name"]').inputValue(),'Global equity index');
+                const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth);
+                assert(overflow<=1,'Horizontal overflow at '+width+': '+overflow);
+                assert.deepEqual(errors,[],'No runtime JavaScript errors at '+width);
+                await page.close();
+              }
+            } finally { await browser.close(); }
+          })().catch(e=>{console.error(e);process.exitCode=1;});
+          JS
