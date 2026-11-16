@@ -49,12 +49,16 @@ jobs:
                 const unlabeled = await page.locator('input,select').evaluateAll(els =>
                   els.filter(el => !(el.labels?.length || el.getAttribute('aria-label'))).map(el => el.id));
                 assert.deepEqual(unlabeled,[],'Every form control has an accessible name at '+width);
-                await page.keyboard.press('Tab');
-                const focus = await page.evaluate(() => ({
-                  tag:document.activeElement?.tagName,
-                  outline:getComputedStyle(document.activeElement).outlineStyle
-                }));
-                assert.equal(focus.tag,'SELECT','Keyboard reaches currency selector');
+                let focus;
+                for (let attempt=0;attempt<20;attempt++) {
+                  await page.keyboard.press('Tab');
+                  focus = await page.evaluate(() => ({
+                    id:document.activeElement?.id,
+                    outline:getComputedStyle(document.activeElement).outlineStyle
+                  }));
+                  if (focus.id==='currency') break;
+                }
+                assert.equal(focus.id,'currency','Keyboard reaches currency selector even with offline toolbar controls');
                 assert.notEqual(focus.outline,'none','Keyboard focus visible');
                 await page.locator('#addBtn').hover();
                 await page.locator('#addBtn').click();
