@@ -1,4 +1,4 @@
-const CONFIG = {"app":"retirement-guardrails","version":"b4c0b44e874ab16823c6","assets":["favicon.svg","index.html","manifest.webmanifest","offline-client.js"],"pages":["index.html"],"spa":false};
+const CONFIG = {"app":"retirement-guardrails","version":"e8ecd7d6909de846391e","assets":["favicon.svg","index.html","manifest.webmanifest","offline-client.js"],"pages":["index.html"],"spa":false};
 const BASE = new URL('./', self.location.href);
 const PREFIX = 'pages-offline-' + CONFIG.app + '-';
 const CACHE = PREFIX + CONFIG.version;

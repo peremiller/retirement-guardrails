@@ -34,6 +34,8 @@
     -webkit-font-smoothing: antialiased;
   }
   .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 20px 80px; }
+  .input-error { color: #ff978a; font-size: 13px; margin: 5px 0; }
+  input[aria-invalid="true"] { border-color: #ff978a; outline-color: #ff978a; }
   header h1 { display:flex; align-items:center; gap:10px; font-size: 26px; margin: 0 0 4px; letter-spacing: -0.02em; }
   header h1 img { width:36px; height:36px; border-radius:9px; }
   header p { color: var(--muted); margin: 0 0 28px; font-size: 15px; }
@@ -165,7 +167,8 @@
         </div>
         <div>
           <label for="spend">Annual spending</label>
-          <input id="spend" type="number" min="0" step="1000" value="80000" />
+          <input id="spend" type="number" min="0" step="1000" value="80000" aria-invalid="false" aria-describedby="spendError" />
+          <p id="spendError" class="input-error" role="alert"></p>
         </div>
         <div>
           <label for="totalView">Portfolio total <span class="muted">(auto)</span></label>
@@ -178,6 +181,7 @@
         <div>Name</div><div>Value (<span id="valHdr">$</span>)</div><div>Asset class</div><div>Expense %</div><div></div>
       </div>
       <div id="holdings"></div>
+      <p id="holdingsError" class="input-error" role="alert"></p>
       <button class="btn ghost" id="addBtn">+ Add holding</button>
     </div>
 
@@ -301,11 +305,11 @@ function renderHoldings() {
     div.className = "holding";
     div.innerHTML = `
       <input aria-label="Holding ${i + 1} name" data-i="${i}" data-f="name" type="text" value="${String(h.name).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}" />
-      <input aria-label="Holding ${i + 1} value" data-i="${i}" data-f="value" type="number" min="0" step="1000" value="${h.value}" />
+      <input aria-label="Holding ${i + 1} value" data-i="${i}" data-f="value" type="number" min="0" step="1000" value="${h.value}" aria-invalid="false" aria-describedby="holdingsError" />
       <select aria-label="Holding ${i + 1} asset class" data-i="${i}" data-f="cls">
         ${CLASSES.map(c => `<option ${c===h.cls?"selected":""}>${c}</option>`).join("")}
       </select>
-      <input aria-label="Holding ${i + 1} expense ratio percent" data-i="${i}" data-f="er" type="number" min="0" step="0.01" value="${h.er}" />
+      <input aria-label="Holding ${i + 1} expense ratio percent" data-i="${i}" data-f="er" type="number" min="0" max="100" step="0.01" value="${h.er}" aria-invalid="false" aria-describedby="holdingsError" />
       <button class="del" data-del="${i}" aria-label="Remove holding ${i + 1}" title="Remove">×</button>`;
     wrap.appendChild(div);
   });
@@ -313,7 +317,19 @@ function renderHoldings() {
     el.addEventListener("input", e => {
       const i = +e.target.dataset.i, f = e.target.dataset.f;
       let v = e.target.value;
-      if (f === "value" || f === "er") v = parseFloat(v) || 0;
+      if (f === "value" || f === "er") {
+        const parsed = Number(v);
+        const valid = v.trim() !== "" && Number.isFinite(parsed) && parsed >= 0 && (f !== "er" || parsed <= 100);
+        e.target.setAttribute("aria-invalid", String(!valid));
+        if (!valid) {
+          $("holdingsError").textContent = f === "er"
+            ? `Holding ${i + 1} expense ratio must be between 0% and 100%. Previous results are preserved.`
+            : `Holding ${i + 1} value must be zero or greater. Previous results are preserved.`;
+          return;
+        }
+        v = parsed;
+        $("holdingsError").textContent = "";
+      }
       holdings[i][f] = v;
       compute();
     });
@@ -327,7 +343,13 @@ function renderHoldings() {
 }
 
 function compute() {
-  const spend = parseFloat($("spend").value) || 0;
+  const spendInput = $("spend");
+  const draftSpend = spendInput.value.trim();
+  const spend = Number(draftSpend);
+  const validSpend = draftSpend !== "" && Number.isFinite(spend) && spend >= 0;
+  spendInput.setAttribute("aria-invalid", String(!validSpend));
+  $("spendError").textContent = validSpend ? "" : "Annual spending must be zero or greater. Previous results are preserved.";
+  if (!validSpend) return;
   const total = holdings.reduce((s,h) => s + (h.value||0), 0);
   const byClass = { "Equities":0, "Bonds":0, "T-bills":0, "Other":0 };
   let feeWeighted = 0;

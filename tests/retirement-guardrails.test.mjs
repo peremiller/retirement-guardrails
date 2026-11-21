@@ -8,3 +8,12 @@ test('dynamically rendered holding controls and delete buttons are named',()=>{f
 test('untrusted holding names escape all HTML attribute metacharacters',()=>{for(const s of [".replace(/&/g,'&amp;')",".replace(/\\\"/g,'&quot;')",".replace(/</g,'&lt;')",".replace(/>/g,'&gt;')"])assert.ok(html.includes(s.replace(/\\\"/g,'"')));});
 test('mobile holding layout, focus rings and main landmark exist',()=>{assert.ok(html.includes('<main class="wrap">'));assert.match(html,/:focus-visible \{ outline: 3px/);assert.match(html,/\.holding \{ grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\)/);});
 test('offline bundle metadata matches public assets',()=>{assert.equal(manifest.files,4);assert.equal(manifest.pages,1);assert.match(manifest.version,/^[a-f0-9]{20}$/);});
+
+test('invalid financial drafts do not overwrite the prior calculated model',()=>{
+  assert.match(html,/const validSpend = draftSpend !== "" && Number\.isFinite\(spend\) && spend >= 0/);
+  assert.match(html,/if \(!validSpend\) return/);
+  assert.match(html,/const valid = v\.trim\(\) !== "" && Number\.isFinite\(parsed\) && parsed >= 0/);
+  assert.match(html,/if \(!valid\) \{[\s\S]*?return;[\s\S]*?\}?[\s\S]*?holdings\[i\]\[f\] = v/);
+  assert.match(html,/id="spendError" class="input-error" role="alert"/);
+  assert.match(html,/id="holdingsError" class="input-error" role="alert"/);
+});

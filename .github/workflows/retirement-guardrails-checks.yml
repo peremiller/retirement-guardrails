@@ -37,7 +37,7 @@ jobs:
           (async () => {
             const browser = await chromium.launch({headless:true});
             try {
-              for (const [width,scheme] of [[320,'dark'],[390,'light'],[1280,'dark']]) {
+              for (const width of [320,390,1280]) for (const scheme of ['dark','light']) {
                 const page = await browser.newPage({viewport:{width,height:820},colorScheme:scheme});
                 const errors = [];
                 page.on('pageerror', e => errors.push(String(e)));
@@ -46,6 +46,29 @@ jobs:
                 assert.equal(await page.locator('#totalView').inputValue(),'$1,000,000');
                 assert(await page.locator('#totalView').isDisabled() === false,'Read-only total is readable');
                 assert.equal(await page.locator('#totalView').getAttribute('readonly'),'');
+                const totalBeforeInvalid = await page.locator('#sTotal').textContent();
+                const runwayBeforeInvalid = await page.locator('#sRunway').textContent();
+                await page.locator('#spend').fill('-1');
+                assert.equal(await page.locator('#spend').getAttribute('aria-invalid'),'true');
+                assert.match(await page.locator('#spendError').innerText(),/zero or greater/);
+                assert.equal(await page.locator('#sRunway').textContent(),runwayBeforeInvalid,'Invalid spending keeps prior results');
+                await page.locator('#spend').fill('80000');
+                assert.equal(await page.locator('#spend').getAttribute('aria-invalid'),'false');
+                const valueInput=page.locator('.holding').first().locator('[data-f="value"]');
+                const oldHoldingValue=await valueInput.inputValue();
+                await valueInput.fill('-125');
+                assert.equal(await valueInput.getAttribute('aria-invalid'),'true');
+                assert.match(await page.locator('#holdingsError').innerText(),/zero or greater/);
+                assert.equal(await page.locator('#sTotal').textContent(),totalBeforeInvalid,'Invalid holding preserves prior portfolio');
+                await valueInput.fill(oldHoldingValue);
+                assert.equal(await valueInput.getAttribute('aria-invalid'),'false');
+                const feeInput=page.locator('.holding').first().locator('[data-f="er"]');
+                const feeBefore=await feeInput.inputValue();
+                await feeInput.fill('150');
+                assert.equal(await feeInput.getAttribute('aria-invalid'),'true');
+                assert.match(await page.locator('#holdingsError').innerText(),/between 0% and 100%/);
+                await feeInput.fill(feeBefore);
+                assert.equal(await feeInput.getAttribute('aria-invalid'),'false');
                 const unlabeled = await page.locator('input,select').evaluateAll(els =>
                   els.filter(el => !(el.labels?.length || el.getAttribute('aria-label'))).map(el => el.id));
                 assert.deepEqual(unlabeled,[],'Every form control has an accessible name at '+width);
